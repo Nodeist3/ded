@@ -1,0 +1,172 @@
+#!/bin/bash
+echo "=================================================="
+echo "   _  ______  ___  __________________";
+echo "  / |/ / __ \/ _ \/ __/  _/ __/_  __/";
+echo " /    / /_/ / // / _/_/ /_\ \  / /   ";
+echo "/_/|_/\____/____/___/___/___/ /_/    ";
+echo -e "\e[0m"
+echo "=================================================="                                     
+
+
+sleep 2
+
+# DEGISKENLER by Nodeist
+AG0_WALLET=wallet
+AG0=ag0
+AG0_ID=agoricollinet-11
+AG0_PORT=38
+AG0_FOLDER=.agoric
+AG0_FOLDER2=ag0
+AG0_VER=agoric-upgrade-5
+AG0_REPO=https://github.com/Agoric/ag0
+AG0_GENESIS=https://ollinet.rpc.agoric.net:443/genesis
+AG0_ADDRBOOK=
+AG0_MIN_GAS=0
+AG0_DENOM=ubld
+AG0_SEEDS=0f04c4610b7511a64b8644944b907416db568590@35.184.29.159:26656
+AG0_PEERS=fb86a0993c694c981a28fa1ebd1fd692f345348b@35.226.232.179:26656
+
+sleep 1
+
+echo "export AG0_WALLET=${AG0_WALLET}" >> $HOME/.bash_profile
+echo "export AG0=${AG0}" >> $HOME/.bash_profile
+echo "export AG0_ID=${AG0_ID}" >> $HOME/.bash_profile
+echo "export AG0_PORT=${AG0_PORT}" >> $HOME/.bash_profile
+echo "export AG0_FOLDER=${AG0_FOLDER}" >> $HOME/.bash_profile
+echo "export AG0_FOLDER2=${AG0_FOLDER2}" >> $HOME/.bash_profile
+echo "export AG0_VER=${AG0_VER}" >> $HOME/.bash_profile
+echo "export AG0_REPO=${AG0_REPO}" >> $HOME/.bash_profile
+echo "export AG0_GENESIS=${AG0_GENESIS}" >> $HOME/.bash_profile
+echo "export AG0_PEERS=${AG0_PEERS}" >> $HOME/.bash_profile
+echo "export AG0_SEED=${AG0_SEED}" >> $HOME/.bash_profile
+echo "export AG0_MIN_GAS=${AG0_MIN_GAS}" >> $HOME/.bash_profile
+echo "export AG0_DENOM=${AG0_DENOM}" >> $HOME/.bash_profile
+source $HOME/.bash_profile
+
+sleep 1
+
+if [ ! $AG0_NODENAME ]; then
+	read -p "NODE ISMI YAZINIZ: " AG0_NODENAME
+	echo 'export AG0_NODENAME='$AG0_NODENAME >> $HOME/.bash_profile
+fi
+
+echo -e "NODE ISMINIZ: \e[1m\e[32m$AG0_NODENAME\e[0m"
+echo -e "CUZDAN ISMINIZ: \e[1m\e[32m$AG0_WALLET\e[0m"
+echo -e "CHAIN ISMI: \e[1m\e[32m$AG0_ID\e[0m"
+echo -e "PORT NUMARANIZ: \e[1m\e[32m$AG0_PORT\e[0m"
+echo '================================================='
+
+sleep 2
+
+
+# GUNCELLEMELER by Nodeist
+echo -e "\e[1m\e[32m1. GUNCELLEMELER YUKLENIYOR... \e[0m" && sleep 1
+sudo apt update && sudo apt upgrade -y
+
+
+# GEREKLI PAKETLER by Nodeist
+echo -e "\e[1m\e[32m2. GEREKLILIKLER YUKLENIYOR... \e[0m" && sleep 1
+sudo apt install curl tar wget clang pkg-config libssl-dev jq build-essential bsdmainutils git make ncdu gcc git jq chrony liblz4-tool -y
+
+# GO KURULUMU by Nodeist
+echo -e "\e[1m\e[32m1. GO KURULUYOR... \e[0m" && sleep 1
+ver="1.18.2"
+cd $HOME
+wget "https://golang.org/dl/go$ver.linux-amd64.tar.gz"
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf "go$ver.linux-amd64.tar.gz"
+rm "go$ver.linux-amd64.tar.gz"
+echo "export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin" >> ~/.bash_profile
+source ~/.bash_profile
+go version
+
+sleep 1
+
+# KUTUPHANE KURULUMU by Nodeist
+echo -e "\e[1m\e[32m1. REPO YUKLENIYOR... \e[0m" && sleep 1
+cd $HOME
+git clone $AG0_REPO
+cd $AG0_FOLDER2
+git checkout $AG0_VER
+make build
+cp $HOME/ag0/build/ag0 /usr/local/bin
+
+sleep 1
+
+# KONFIGURASYON by Nodeist
+echo -e "\e[1m\e[32m1. KONFIGURASYONLAR AYARLANIYOR... \e[0m" && sleep 1
+$AG0 config chain-id $AG0_ID
+$AG0 config keyring-backend file
+$AG0 init $AG0_NODENAME --chain-id $AG0_ID
+
+# ADDRBOOK ve GENESIS by Nodeist
+wget $AG0_GENESIS -O $HOME/$AG0_FOLDER/config/genesis.json
+wget $AG0_ADDRBOOK -O $HOME/$AG0_FOLDER/config/addrbook.json
+
+# EŞLER VE TOHUMLAR by Nodeist
+SEEDS="$AG0_SEEDS"
+PEERS="$AG0_PEERS"
+sed -i -e "s/^seeds *=.*/seeds = \"$SEEDS\"/; s/^persistent_peers *=.*/persistent_peers = \"$PEERS\"/" $HOME/$AG0_FOLDER/config/config.toml
+
+sleep 1
+
+
+# config pruning
+pruning="custom"
+pruning_keep_recent="100"
+pruning_keep_every="0"
+pruning_interval="50"
+sed -i -e "s/^pruning *=.*/pruning = \"$pruning\"/" $HOME/$AG0_FOLDER/config/app.toml
+sed -i -e "s/^pruning-keep-recent *=.*/pruning-keep-recent = \"$pruning_keep_recent\"/" $HOME/$AG0_FOLDER/config/app.toml
+sed -i -e "s/^pruning-keep-every *=.*/pruning-keep-every = \"$pruning_keep_every\"/" $HOME/$AG0_FOLDER/config/app.toml
+sed -i -e "s/^pruning-interval *=.*/pruning-interval = \"$pruning_interval\"/" $HOME/$AG0_FOLDER/config/app.toml
+
+
+# ÖZELLEŞTİRİLMİŞ PORTLAR by Nodeist
+sed -i.bak -e "s%^proxy_app = \"tcp://127.0.0.1:26658\"%proxy_app = \"tcp://127.0.0.1:${AG0_PORT}658\"%; s%^laddr = \"tcp://127.0.0.1:26657\"%laddr = \"tcp://127.0.0.1:${AG0_PORT}657\"%; s%^pprof_laddr = \"localhost:6060\"%pprof_laddr = \"localhost:${AG0_PORT}060\"%; s%^laddr = \"tcp://0.0.0.0:26656\"%laddr = \"tcp://0.0.0.0:${AG0_PORT}656\"%; s%^prometheus_listen_addr = \":26660\"%prometheus_listen_addr = \":${AG0_PORT}660\"%" $HOME/$AG0_FOLDER/config/config.toml
+sed -i.bak -e "s%^address = \"tcp://0.0.0.0:1317\"%address = \"tcp://0.0.0.0:${AG0_PORT}317\"%; s%^address = \":8080\"%address = \":${AG0_PORT}080\"%; s%^address = \"0.0.0.0:9090\"%address = \"0.0.0.0:${AG0_PORT}090\"%; s%^address = \"0.0.0.0:9091\"%address = \"0.0.0.0:${AG0_PORT}091\"%" $HOME/$AG0_FOLDER/config/app.toml
+sed -i.bak -e "s%^node = \"tcp://localhost:26657\"%node = \"tcp://localhost:${AG0_PORT}657\"%" $HOME/$AG0_FOLDER/config/client.toml
+
+# PROMETHEUS AKTIVASYON by Nodeist
+sed -i -e "s/prometheus = false/prometheus = true/" $HOME/$AG0_FOLDER/config/config.toml
+
+# MINIMUM GAS AYARI by Nodeist
+sed -i -e "s/^minimum-gas-prices *=.*/minimum-gas-prices = \"0.00125$AG0_DENOM\"/" $HOME/$AG0_FOLDER/config/app.toml
+
+# INDEXER AYARI by Nodeist
+indexer="null" && \
+sed -i -e "s/^indexer *=.*/indexer = \"$indexer\"/" $HOME/$AG0_FOLDER/config/config.toml
+
+
+
+# RESET by Nodeist
+$AG0 tendermint unsafe-reset-all --home $HOME/$AG0_FOLDER
+
+echo -e "\e[1m\e[32m4. SERVIS BASLATILIYOR... \e[0m" && sleep 1
+# create service
+sudo tee /etc/systemd/system/$AG0.service > /dev/null <<EOF
+[Unit]
+Description=$AG0
+After=network.target
+[Service]
+Type=simple
+User=$USER
+ExecStart=$(which $AG0) start
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+[Install]
+WantedBy=multi-user.target
+EOF
+
+
+# SERVISLERI BASLAT by Nodeist
+sudo systemctl daemon-reload
+sudo systemctl enable $AG0
+sudo systemctl restart $AG0
+
+echo '=============== KURULUM TAMAM! by Nodeist ==================='
+echo -e 'LOGLARI KONTROL ET: \e[1m\e[32mjournalctl -f $AG0\e[0m'
+echo -e "SENKRONIZASYONU KONTROL ET: \e[1m\e[32mcurl -s localhost:${AG0_PORT}657/status | jq .result.sync_info\e[0m"
+
+source $HOME/.bash_profile
